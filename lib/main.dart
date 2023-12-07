@@ -19,16 +19,21 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 // WebSocket channel
-final String websocketUrl =
+const String websocketUrl =
     'wss://socket.live-menu.ir?ogid=EF4653F9-1058-4191-9795-DB425C06EA76';
 late IOWebSocketChannel channel;
 bool isWebSocketConnected = false;
+String socketStatus = "Socket Status: Connecting...";
 
 Future<void> initializeNotifications() async {
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
   final InitializationSettings initializationSettings =
       InitializationSettings(android: initializationSettingsAndroid);
+  flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()!
+      .requestNotificationsPermission();
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 }
 
@@ -45,6 +50,7 @@ Future<void> initializeService() async {
   );
 }
 
+@pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
@@ -69,12 +75,17 @@ void onStart(ServiceInstance service) async {
         print('WebSocket data: $data');
 
         displayNotificationFromWebSocketMessage(data);
+
+        socketStatus = "Socket Status: Connected";
         // Handle WebSocket data
       },
       onDone: () {
         print('WebSocket closed');
         // Handle WebSocket closure
         isWebSocketConnected = false;
+        
+        socketStatus =
+            "Socket Status: Disconnected"; // Update the socket status
 
         // Attempt to reconnect after a delay
         Timer(const Duration(seconds: 5), () {
@@ -85,6 +96,7 @@ void onStart(ServiceInstance service) async {
       },
       onError: (error) {
         print('WebSocket error: $error');
+        socketStatus = "Socket Status: Error";
         // Handle WebSocket errors
       },
     );
@@ -104,11 +116,11 @@ void onStart(ServiceInstance service) async {
 
     if (service is AndroidServiceInstance) {
       if (await service.isForegroundService()) {
-        service.setForegroundNotificationInfo(
-          title: 'My app service',
-          content: 'updated at ${DateTime.now()}',
-        );
-        updateForegroundNotificationContent();
+        // service.setForegroundNotificationInfo(
+        //   title: 'My app service',
+        //   content: 'updated at ${DateTime.now()}',
+        // );
+        // updateForegroundNotificationContent();
       }
     }
 
@@ -163,7 +175,7 @@ void updateForegroundNotificationContent() {
 }
 
 void displayNotificationFromWebSocketMessage(String message) async {
-const AndroidNotificationDetails androidPlatformChannelSpecifics =
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
       AndroidNotificationDetails(
     '1456454765876960976076985876473754',
     'WebSocket Message',
@@ -200,6 +212,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+
+  
   String text = "Stop Service";
   @override
   Widget build(BuildContext context) {
@@ -229,6 +243,7 @@ class _MyAppState extends State<MyApp> {
               );
             },
           ),
+          Text(socketStatus),
           ElevatedButton(
             child: const Text("Foreground Mode"),
             onPressed: () {
